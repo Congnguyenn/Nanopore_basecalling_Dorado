@@ -1,52 +1,51 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    NANOPORE DEMULTIPLEXING: DORADO
-    Performing demultiplexing by Dorado
-    Ref: https://github.com/nanoporetech/dorado/tree/release-v0.5.3
+    FRAGMENT_LENTH:
+    Investigate the fragment length of barcode2end data using Samtools & render plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-    process DORADO_DEMUX {
-    tag "${batchID}"
-    label "Dorado_demux"
+    process FRAGMENT_LENGTH {
+    label "Fragment_Length"
     debug true
+    conda "${projectDir}/envs/r_env.yml"
 
     input:
-        tuple   val(batchID),
-                path(basecalled_bam)
-                val (barcode_kit)
+        tuple   path(bamfile),
+                val(min_inves_flen),
+                val(max_inves_flen)
 
     output:
-        path("*.bam"),                      emit: demultiplexed_bam
+        path("*")
     
     script:
     """
-    export dorado="/home/congnguyen/dorado-0.5.3-linux-x64/bin/dorado"
+    #Get bamfilename
+    bamfilename=\$(basename ${bamfile} .bam)
 
-    \$dorado demux \
-                --kit-name ${barcode_kit} \
-                --output-dir . \
-                ${basecalled_bam} \
-                --threads ${task.cpus}
+    #Get read lengths
+    samtools view \
+                ${bamfile} --threads ${task.cpus} \
+                | awk '{print \$1 \"\t" \$6 \"\t" length(\$10)}' \
+                > \$bamfilename.Flen.tmp1.txt
+
+    # Add header to the file, remove records with ReadLength > 3000, and remove records with CIGAR="*"
+    awk '\$3 < ${max_inves_flen} && \$3 >= ${min_inves_flen} && \$2 != "*"' \$bamfilename.Flen.tmp1.txt > \$bamfilename.Flen.txt
+
+    #Remove temporary files
+    rm \$bamfilename.Flen.tmp1.txt
+
+    #Execute R script to render the fragment length distribution
+    Flen_render.R \
+                --Flen_path \$bamfilename.Flen.txt \
+                --Outdir .
+
     """
 }
+    // #bamfile=$1
+    // #outdir=$2
+    // #threads=20
 
-
-    // for bam_file in *_barcode??.bam; do
-
-    //     # Check if the file size is greater than 0
-    //     if [ -s "\$bam_file" ]; then
-
-    //         # Get the name of the bam file
-    //         bam_file_name=\$(basename \$bam_file .bam)
-
-    //         # Extract fastq from each bam file
-    //         samtools fastq -T "*" --threads ${task.cpus} \$bam_file | gzip > \$bam_file_name.fastq.gz
-    //     fi
-    // done
-
-    // # Extract fastq from unclassified bam
-    // samtools fastq -T "*" --threads ${task.cpus} unclassified.bam | gzip > unclassified.fastq.gz
-
+    // #mkdir -p $outdir
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  DORADO MANUAL

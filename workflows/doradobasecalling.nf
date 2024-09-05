@@ -44,7 +44,10 @@ ch_multiqc_config          = Channel.fromPath("$projectDir/assets/multiqc_config
 ch_multiqc_custom_config   = params.multiqc_config ? Channel.fromPath( params.multiqc_config, checkIfExists: true ) : Channel.empty()
 ch_multiqc_logo            = params.multiqc_logo   ? Channel.fromPath( params.multiqc_logo, checkIfExists: true ) : Channel.empty()
 ch_multiqc_custom_methods_description = params.multiqc_methods_description ? file(params.multiqc_methods_description, checkIfExists: true) : file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
-
+bedfiles                   = Channel.fromPath("$projectDir/bedfiles/*.bed", checkIfExists: true).map { file -> [file.baseName, file.toString()] }
+max_inves_flen             = Channel.value(params.max_inves_flen)
+min_inves_flen             = Channel.value(params.min_length)
+ 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT LOCAL MODULES
@@ -55,7 +58,17 @@ include { DORADO_BASECALLER             } from "${projectDir}/modules/local/dora
 
 include { DORADO_DEMUX                  } from "${projectDir}/modules/local/dorado_demux"
 
+include { DORADO_DEMUX_2ENDS            } from "${projectDir}/modules/local/dorado_demux_2ends"
+
+include { FRAGMENT_LENGTH               } from "${projectDir}/modules/local/Fragment_Length"
+
+include { BAMTOFASTQ                    } from "${projectDir}/modules/local/bamtofastq"
+
 include { REMOVE_BAD_ALIGNMENT          } from "${projectDir}/modules/local/remove_bad_alignment"
+
+include { MOSDEPTH                      } from "${projectDir}/modules/local/mosdepth"
+
+include { SAMTOOLS_DEPTH                } from "${projectDir}/modules/local/samtools_depth"
 
 include { SEQUENCING_SUMMARY            } from "${projectDir}/modules/local/sequencing_summary"
 
@@ -98,24 +111,41 @@ workflow DORADOBASECALLING {
                                     min_qscore,
                                     reference)
 
+    // Demultiplexing: Dorado
     DORADO_DEMUX (DORADO_BASECALLER.out.basecalled_bam,
                                     barcode_kit)
 
+    // Demultiplexing 2ends: Dorado
+    DORADO_DEMUX_2ENDS (DORADO_BASECALLER.out.basecalled_bam,
+                                    barcode_kit)
+
+    // Render Fragment Length Distribution: Samtools + Rscript
+    FRAGMENT_LENGTH (DORADO_DEMUX_2ENDS.out.demultiplexed_2ends_bam
+                                    .flatten()
+                                    .combine(min_inves_flen)
+                                    .combine(max_inves_flen))
+
+    // Convert BamtoFastq using samtools
+    BAMTOFASTQ(DORADO_DEMUX.out.demultiplexed_bam.flatten())
+    
     // Removing Bad Alignment: samtools
     REMOVE_BAD_ALIGNMENT (DORADO_DEMUX.out.demultiplexed_bam.flatten(),
                                     min_align_score)
 
+    // Investigate the genome-wide coverage and depth of each barcode, using Samtool [depth/coverage]
+    SAMTOOLS_DEPTH(REMOVE_BAD_ALIGNMENT.out.sorted_high_map_quality)
+
+    // Investigate the regulatory regions coverage and depth of each barcode, using Mosdepth
+    MOSDEPTH(REMOVE_BAD_ALIGNMENT.out.sorted_high_map_quality.combine(bedfiles))
+
     // Generate Sequencing Summary Table: Dorado
     SEQUENCING_SUMMARY (DORADO_BASECALLER.out.basecalled_bam)
-
-    // Converting ModBAM to BedMethyl Files: Modkit
-    MODKIT (REMOVE_BAD_ALIGNMENT.out.sorted_high_map_quality)
 
     // Nanopore Sequencing Quality Assessment: PycoQC
     PYCOQC (SEQUENCING_SUMMARY.out.sequencing_summary)
 
     // QC LONG READS
-    QC_LONG_READS (DORADO_DEMUX.out.demultiplexed_fastq)
+    QC_LONG_READS(BAMTOFASTQ.out.demultiplexed_fastq.collect())
 
 }
 

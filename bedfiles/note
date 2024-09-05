@@ -1,0 +1,5 @@
+### DOWNLOAD LINK:
+- cg_motifs_filtered: https://genome.ucsc.edu/cgi-bin/hgTables, then remove non-essential columns
+- CpGI_filtered: https://genome.ucsc.edu/cgi-bin/hgTables, then remove non-essential columns
+- TSSpeak_filtered: https://genome.ucsc.edu/cgi-bin/hgTables, then remove non-essential columns
+- mane_*: https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/current/, then extract by features (CDS,Exon,Gene)

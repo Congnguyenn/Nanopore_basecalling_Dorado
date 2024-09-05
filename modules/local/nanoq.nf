@@ -9,6 +9,7 @@
         'https://depot.galaxyproject.org/singularity/nanoq:0.10.0--h031d066_1' :
         'quay.io/biocontainers/nanoq:0.10.0--h031d066_1' }"
     label "NanoQ"
+    label "error_ignore"
 
     input:
         path(fastq)

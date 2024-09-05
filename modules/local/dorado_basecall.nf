@@ -33,11 +33,10 @@
                     --no-trim \
                     --reference ${reference} \
                     --modified-bases ${modification_model} \
+                    --min-qscore ${min_qscore} \
                     > ${batchID}.bam
     """
 }
-                    //                     --emit-sam \
-                    //samtools fastq -T "*" ${batchID}.bam > ${batchID}.fastq
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

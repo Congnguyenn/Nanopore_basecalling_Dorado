@@ -1,13 +1,13 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NANOPORE DEMULTIPLEXING: DORADO
-    Performing demultiplexing by Dorado
+    Performing demultiplexing by Dorado, Use both-ends barcode
     Ref: https://github.com/nanoporetech/dorado/tree/release-v0.5.3
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-    process DORADO_DEMUX {
+    process DORADO_DEMUX_2ENDS {
     tag "${batchID}"
-    label "Dorado_demux"
+    label "Dorado_demux_2ends"
     debug true
 
     input:
@@ -16,7 +16,7 @@
                 val (barcode_kit)
 
     output:
-        path("*.bam"),                      emit: demultiplexed_bam
+        path("*.bam"),                      emit: demultiplexed_2ends_bam
     
     script:
     """
@@ -26,7 +26,8 @@
                 --kit-name ${barcode_kit} \
                 --output-dir . \
                 ${basecalled_bam} \
-                --threads ${task.cpus}
+                --threads ${task.cpus} \
+                --barcode-both-ends
     """
 }
 
